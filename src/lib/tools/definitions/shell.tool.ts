@@ -1,0 +1,1 @@
+// src/lib/tools/definitions/shell.tool.ts

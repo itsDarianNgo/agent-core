@@ -1,0 +1,1 @@
+// tests/lib/tools/toolRegistry.test.ts
