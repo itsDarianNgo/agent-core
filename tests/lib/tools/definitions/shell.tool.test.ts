@@ -1,27 +1,30 @@
 // tests/lib/tools/definitions/shell.tool.test.ts
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as util from 'util';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// --- The Definitive, Hoisting-Safe, TDZ-Aware Mocking Strategy ---
+
+// 1. Use `vi.hoisted` to create a block of code that runs BEFORE all imports and mocks.
+//    This creates our spy in a way that avoids the Temporal Dead Zone error.
+const { mockExecAsync } = vi.hoisted(() => {
+    return {
+        mockExecAsync: vi.fn(),
+    };
+});
+
+// 2. Mock the 'util' module. This is hoisted by Vitest to run after `vi.hoisted`.
+vi.mock('util', () => ({
+    // 3. The factory can now safely access `mockExecAsync` because it was initialized in the hoisted block.
+    promisify: vi.fn().mockImplementation(() => mockExecAsync),
+}));
+
+// 4. Import the module to be tested. It will receive the fully configured mock.
 import { runShellCommandTool } from '../../../../src/lib/tools/definitions/shell.tool';
-
-// --- The definitive mocking strategy ---
-// 1. Create a single, reusable mock function that will stand in for `execAsync`.
-const mockExecAsync = vi.fn();
-
-// 2. Spy on `util.promisify`. When the production code calls it to create `execAsync`,
-//    we intercept that call and return OUR mock function instead of the real one.
-vi.spyOn(util, 'promisify').mockImplementation(() => mockExecAsync);
-
 
 describe('runShellCommandTool', () => {
     beforeEach(() => {
-        // Before each test, reset the history and behavior of our mock function.
+        // 5. Before each test, reset our spy's history.
         mockExecAsync.mockReset();
-    });
-
-    afterEach(() => {
-        // After all tests in this file, restore the original `util.promisify`.
-        vi.restoreAllMocks();
     });
 
     it('should return formatted stdout and stderr on successful execution', async () => {
@@ -49,7 +52,7 @@ describe('runShellCommandTool', () => {
     it('should return a specific timeout error message', async () => {
         const error: any = new Error('Timeout');
         error.signal = 'SIGTERM';
-        error.code = 1; // SIGTERM often results in a non-zero exit code
+        error.code = 1;
         error.stdout = 'Still running...';
         error.stderr = '';
         mockExecAsync.mockRejectedValue(error);
